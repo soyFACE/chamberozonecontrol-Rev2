@@ -1,7 +1,7 @@
 #include "DFRobot_GP8403.h"
 DFRobot_GP8403 dac(&Wire,0x5F);
 
-
+String firmware_version_number = "firmware version 0002" // this will need to change with certain hardware changes. I'm not sure if I'll track it closely with most software changes
 const int OzonePin = A0;
 const int ozone_pin_alternate = A3;
 const int ballast_power_relay_pin = 12;
@@ -21,12 +21,13 @@ float ozonator_light_intensity = 0;
 int door_sense = 0;
 
 //Find how to store these in non-volatile memory
-float kp = 0.0600;//.045; // For the full-size chamber 5V reached at least 500-690. ~690/5/2 //.010;// V output stabilized at ~190ppb 190/5 = 38. This is what the tutorials say, but shouldn't it be 5/190? //.032;
-float ki = 0.0002/CYCLETIME;  //.0002/CYCLETIME; //.006/CYCLETIME;  //.0025/CYCLETIME;
-float kd = 0.0899*CYCLETIME; //.01*CYCLETIME; //.20*CYCLETIME;  //.08*CYCLETIME;
+float kp = 0.0600;
+float ki = 0.0002/CYCLETIME;
+float kd = 0.0899*CYCLETIME;
+
 
 float Pcomponent = 0;
-float Icomponent = 1.32; // tweak the initial I term to help things stabilize sooner.
+float Icomponent = 1.32; // Set the initial I term to help things stabilize sooner.
 float Dcomponent = 0;
 float vout_in_volts;
 
@@ -39,7 +40,6 @@ int BULB_AUTO = 0;
 int STATE = 0;
 
 
-float DACout = 0;
 int DFRout = 0;
 int OZONEGAIN = 250;
 int CO2GAIN = 2000;
@@ -65,8 +65,6 @@ void setup() {
   digitalWrite(ballast_power_relay_pin,0);
   Serial.begin(9600);
   //Serial.println("<Arduino is ready>");
-  //pinMode(BulbPin,OUTPUT);
-  //analogWrite(BulbPin,0);
   while(dac.begin()!=0){
     Serial.println("init error");
     delay(1000);
@@ -74,7 +72,9 @@ void setup() {
   Serial.println("<Arduino is ready>");
   //Set DAC output range
   dac.setDACOutRange(dac.eOutputRange10V);
+  //Set DFR output pin 0 to 0 volts. This is for automated control of the UV bulb and makes sure it's off when starting
   dac.setDACOutVoltage(0,0);
+  //Set DFR output pin 1 to 10 volts. This is for manual control of the UV bulb and provides the excitation voltage for the manual potentiometer
   dac.setDACOutVoltage(10000,1);
 }
 
@@ -88,7 +88,6 @@ void control_loop(){
   elapsed_time = this_time - last_time;
 
   if(FIRST_CYCLE & elapsed_time >= CYCLETIME){
-    //analogWrite(BulbPin,0);
     dac.setDACOutVoltage(0,0);
     BALLAST_MANUAL = !digitalRead(ballast_manual_on_sense_pin);
     BALLAST_AUTO = !digitalRead(ballast_auto_sense_pin);
@@ -102,8 +101,6 @@ void control_loop(){
     error = setpoint - process_value;
     Pcomponent = error * kp * abs(error/setpoint);
     Icomponent += error * elapsed_time * ki * OZONE_ON;
-    //if(Icomponent >=2){Icomponent = 2;}
-    //if(Icomponent <= -.2){Icomponent = -0.2;}
     Dcomponent = (error - last_error) / elapsed_time * kd; // is there a way to make this hold the last value if the process value hasn't updated? Maybe averaging the current and last value would be easier. Matching the 4 second cycle of the monitor is probably easiest.
     last_error = error;
     FIRST_CYCLE = false;
@@ -129,18 +126,10 @@ void control_loop(){
     if(vout_in_volts < 0){vout_in_volts = 0;}
     if(vout_in_volts > 10){vout_in_volts = 10;}
   
-    DACout = floor(vout_in_volts/5*255);
-    if(DACout <= 0){DACout = 0;} //This and the line below are to help prevent instability when the DACout is near the threshhold to keep the bulb on.
-    if(DACout > 0 & DACout < 7){DACout = 7;} // This is the minimum DAC level that will consistently activate the UV bulb. Determined by eye.
-    if(DACout > 255){DACout = 255;} // Prevent sending a value greater than 255 (the maximum value) to the DAC.
-    DACout = DACout*OZONE_ON;
-    //DACout = 255*OZONE_ON;
-    //DACout = 20*OZONE_ON;
-    //analogWrite(BulbPin,DACout);
 
     DFRout = floor(vout_in_volts * 1000);
     if(DFRout <= 0){DFRout = 0;} //This and the line below are to help prevent instability when the DACout is near the threshhold to keep the bulb on.
-    if(DFRout > 0 & DFRout < 138){DACout = 138;} // This is the minimum DAC level that will consistently activate the UV bulb. Determined by eye.
+    if(DFRout > 0 & DFRout < 138){DFRout = 138;} // This is the minimum DAC level that will consistently activate the UV bulb. Determined by eye.
     if(DFRout > 10000){DFRout = 10000;} // Prevent sending a value greater than 10000 (the maximum value) to the DFR.
     digitalWrite(ballast_power_relay_pin, OZONE_ON);
     DFRout = DFRout*OZONE_ON;
@@ -225,7 +214,10 @@ void control_loop(){
     Serial.print(kd/CYCLETIME,4);      
     Serial.print(",");
     Serial.print("cycle time:");
-    Serial.print(CYCLETIME);      
+    Serial.print(CYCLETIME);
+    Serial.print(",");
+    Serial.print("firmware version number");
+    Serial.print(firmware_version_number);
     Serial.println();
     last_error = error;
   }
