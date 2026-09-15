@@ -9,6 +9,7 @@ const int ballast_manual_on_sense_pin = 4;
 const int ballast_auto_sense_pin = 2;
 const int bulb_intensity_manual_sense_pin = 7;
 const int bulb_intensity_auto_sense_pin = 8;
+const int DOOR_PIN = 13;
 //const int BulbPin = 9;
 const int CYCLETIME = 4000;
 float setpoint = 150;
@@ -18,7 +19,7 @@ float error = 0;
 float last_error = 0;
 float ozonator_temp = 0;
 float ozonator_light_intensity = 0;
-int door_sense = 0;
+int door_is_closed = 0;
 
 //Find how to store these in non-volatile memory
 float kp = 0.0600;
@@ -62,6 +63,7 @@ void setup() {
   pinMode(ballast_auto_sense_pin, INPUT_PULLUP);
   pinMode(bulb_intensity_manual_sense_pin, INPUT_PULLUP);
   pinMode(bulb_intensity_auto_sense_pin, INPUT_PULLUP);
+  pinMode(DOOR_PIN, INPUT_PULLUP);
   digitalWrite(ballast_power_relay_pin,0);
   Serial.begin(9600);
   //Serial.println("<Arduino is ready>");
@@ -93,6 +95,7 @@ void control_loop(){
     BALLAST_AUTO = !digitalRead(ballast_auto_sense_pin);
     BULB_MANUAL = !digitalRead(bulb_intensity_manual_sense_pin);
     BULB_AUTO = !digitalRead(bulb_intensity_auto_sense_pin);
+    door_is_closed = !digitalRead(DOOR_PIN);
     last_time = this_time;
     process_value = analogRead(OzonePin);
     process_value = process_value/1023*OZONEGAIN;
@@ -132,12 +135,18 @@ void control_loop(){
     if(DFRout > 0 & DFRout < 138){DFRout = 138;} // This is the minimum DAC level that will consistently activate the UV bulb. Determined by eye.
     if(DFRout > 10000){DFRout = 10000;} // Prevent sending a value greater than 10000 (the maximum value) to the DFR.
     digitalWrite(ballast_power_relay_pin, OZONE_ON);
+    isOzoneOn = function(automaticontrol, active_timve, door_open,...){
+      return( ( AUTOCONTROL && (door_is_closed || interlock_is_disabled)))
+      
+    }
+    OZONE_ON = isOzoneOn(......);
     DFRout = DFRout*OZONE_ON;
     dac.setDACOutVoltage(DFRout,0);
     BALLAST_MANUAL = !digitalRead(ballast_manual_on_sense_pin);
     BALLAST_AUTO = !digitalRead(ballast_auto_sense_pin);
     BULB_MANUAL = !digitalRead(bulb_intensity_manual_sense_pin);
     BULB_AUTO = !digitalRead(bulb_intensity_auto_sense_pin);
+    door_is_closed = !digitalRead(DOOR_PIN);
 
 
     
@@ -195,8 +204,8 @@ void control_loop(){
     Serial.print("Process_Value_alternate:");
     Serial.print(process_value_alternate);
     Serial.print(",");
-    Serial.print("Door_Open:");
-    Serial.print(door_sense);
+    Serial.print("Door_Closed:");
+    Serial.print(door_is_closed);
     Serial.print(",");
     Serial.print("Ozonator_Temp:");
     Serial.print(ozonator_temp);
@@ -349,3 +358,41 @@ void read_command_string(){
         Serial.println(token);
     }
 }
+
+
+int y;
+
+
+
+int calculatey = function(m,x,b){
+  return m*x+b
+}
+
+y = calculatey(1,5,7)
+
+print(y) "12"
+
+y = calculatey(1,5,7)
+
+print(y) "12"
+
+
+void calculatey = function(y,m,x,b)
+  y = m*x+b
+}
+
+calculatey(y,m,x,b)
+
+print(y) "12"
+
+calculatey(y,m,x,b)
+
+print(y) "12"
+
+void calculatey = function(m,x,b)
+  y = m*x+b
+}
+
+calculatey(m,x,b)
+
+print(y) "12"
