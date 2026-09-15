@@ -18,9 +18,16 @@ float error = 0;
 float last_error = 0;
 float ozonator_temp = 0;
 float ozonator_light_intensity = 0;
-int door_sense = 0;
+int door_sense = 0; // this is the one of the physical door sensor
 
 //Find how to store these in non-volatile memory
+
+//door code
+const int door_sensor_pin ; // we can set this when we put it all together
+bool DOOR_SENSOR_NORMALLY_CLOSED = true; // we can also change this when we get the sensor
+bool DOOR_INTERLOCK_BYPASS = false; // this is the one that ignores door sensor
+int OZONE_ON_BEFORE_DOOR = 0;
+
 float kp = 0.0600;
 float ki = 0.0002/CYCLETIME;
 float kd = 0.0899*CYCLETIME;
@@ -62,6 +69,7 @@ void setup() {
   pinMode(ballast_auto_sense_pin, INPUT_PULLUP);
   pinMode(bulb_intensity_manual_sense_pin, INPUT_PULLUP);
   pinMode(bulb_intensity_auto_sense_pin, INPUT_PULLUP);
+  pinMode(door_sensor_pin, INPUT_PULLUP);
   digitalWrite(ballast_power_relay_pin,0);
   Serial.begin(9600);
   //Serial.println("<Arduino is ready>");
@@ -83,10 +91,32 @@ control_loop();
 recvWithStartEndMarkers();
 }
 
+bool readDoor(int rawState) {
+  return ((rawState == HIGH) == DOOR_SENSOR_NORMALLY_CLOSED))
+}
+
+void do_door_interock() {
+  int previous_door_sense = door_sense;
+  door_sense = readDoor(digitalRead(door_sensor_pin)) ? 1 :0
+  if (DOOR_INTERLOCK_BYPASS) {
+    return;
+  }
+  if (door_sense == 1) {
+    if (previous_door_sense == 0) {
+      OZONE_BEFORE_DOOR = OZONE_ON;
+    } 
+    OZONE_ON = 0;
+  } else if (previous_doorsense == 1) {
+    OZONE_ON = OZONE_BEFORE_DOOR;
+  }
+ }
+
+
+
 void control_loop(){
   this_time = millis();
   elapsed_time = this_time - last_time;
-
+  
   if(FIRST_CYCLE & elapsed_time >= CYCLETIME){
     dac.setDACOutVoltage(0,0);
     BALLAST_MANUAL = !digitalRead(ballast_manual_on_sense_pin);
@@ -94,6 +124,7 @@ void control_loop(){
     BULB_MANUAL = !digitalRead(bulb_intensity_manual_sense_pin);
     BULB_AUTO = !digitalRead(bulb_intensity_auto_sense_pin);
     last_time = this_time;
+    do_door_interlock(); // doooooor code.
     process_value = analogRead(OzonePin);
     process_value = process_value/1023*OZONEGAIN;
     process_value_alternate = analogRead(ozone_pin_alternate);
@@ -104,10 +135,14 @@ void control_loop(){
     Dcomponent = (error - last_error) / elapsed_time * kd; // is there a way to make this hold the last value if the process value hasn't updated? Maybe averaging the current and last value would be easier. Matching the 4 second cycle of the monitor is probably easiest.
     last_error = error;
     FIRST_CYCLE = false;
+    
+    
+    }
   }
   
   if(!FIRST_CYCLE & elapsed_time >= CYCLETIME){
     last_time = this_time;
+    do_door_interlock(); // dooooor code.
     process_value = analogRead(OzonePin);
     process_value = process_value/1023*OZONEGAIN;
     process_value_alternate = analogRead(ozone_pin_alternate);
