@@ -7,7 +7,7 @@ const int OZONE_PIN_ALTERNATE = A3;
 const int BALLAST_POWER_RELAY_PIN = 12;
 const int BALLAST_MANUAL_ON_SENSE_PIN = 4;
 const int BALLAST_AUTO_SENSE_PIN = 2;
-const int DOOR_SENSOR_PIN = 3;
+const int DOOR_SENSOR_PIN = 3; // we can set this when we put it all together
 const int BULB_INTENSITY_MANUAL_SENSE_PIN = 7;
 const int BULB_INTENSITY_AUTO_SENSE_PIN = 8;
 //const int BulbPin = 9;
@@ -100,6 +100,7 @@ void control_loop(){
     ballast_auto = !digitalRead(BALLAST_AUTO_SENSE_PIN);
     bulb_manual = !digitalRead(BULB_INTENSITY_MANUAL_SENSE_PIN);
     bulb_auto = !digitalRead(BULB_INTENSITY_AUTO_SENSE_PIN);
+    door_is_closed = !digitalRead(DOOR_SENSOR_PIN);
     last_time = this_time;
     process_value = analogRead(OZONE_PIN);
     process_value = process_value/1023*ozone_gain;
@@ -147,6 +148,7 @@ void control_loop(){
     ballast_auto = !digitalRead(BALLAST_AUTO_SENSE_PIN);
     bulb_manual = !digitalRead(BULB_INTENSITY_MANUAL_SENSE_PIN);
     bulb_auto = !digitalRead(BULB_INTENSITY_AUTO_SENSE_PIN);
+    door_is_closed = !digitalRead(DOOR_SENSOR_PIN);
 
 
     
