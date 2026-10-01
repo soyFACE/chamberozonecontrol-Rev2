@@ -7,6 +7,7 @@ const int OZONE_PIN_ALTERNATE = A3;
 const int BALLAST_POWER_RELAY_PIN = 12;
 const int BALLAST_MANUAL_ON_SENSE_PIN = 4;
 const int BALLAST_AUTO_SENSE_PIN = 2;
+const int DOOR_SENSOR_PIN = 3;
 const int BULB_INTENSITY_MANUAL_SENSE_PIN = 7;
 const int BULB_INTENSITY_AUTO_SENSE_PIN = 8;
 //const int BulbPin = 9;
@@ -18,12 +19,12 @@ float error = 0;
 float last_error = 0;
 float ozonator_temp = 0;
 float ozonator_light_intensity = 0;
-int door_sense = 0; // this is the one of the physical door sensor
+int door_is_closed = 0; // this is the one of the physical door sensor
 
 //Find how to store these in non-volatile memory
 
 //door code
-const int DOOR_SENSOR_PIN 3; // we can set this when we put it all together
+
 bool door_interlock_is_bypassed = false; // this is the one that ignores door sensor
 
 
@@ -90,18 +91,9 @@ control_loop();
 recvWithStartEndMarkers();
 }
 
-
-
-bool IsOzoneOn() {
-  door_sense = digitalRead(DOOR_SENSOR_PIN);
-  return (door_sense == 0) || door_interlock_is_bypassed;
-}
-
-
 void control_loop(){
   this_time = millis();
   elapsed_time = this_time - last_time;
-  ozone_on = IsOzoneOn()
   if(first_cycle & elapsed_time >= CYCLETIME){
     dac.setDACOutVoltage(0,0);
     ballast_manual = !digitalRead(BALLAST_MANUAL_ON_SENSE_PIN);
@@ -115,7 +107,7 @@ void control_loop(){
     process_value_alternate = process_value_alternate/1023*CO2_gain;
     error = setpoint - process_value;
     Pcomponent = error * kp * abs(error/setpoint);
-    Icomponent += error * elapsed_time * ki * ozone_on;
+    Icomponent += error * elapsed_time * ki * ozone_on * door_is_closed;
     Dcomponent = (error - last_error) / elapsed_time * kd; // is there a way to make this hold the last value if the process value hasn't updated? Maybe averaging the current and last value would be easier. Matching the 4 second cycle of the monitor is probably easiest.
     last_error = error;
     first_cycle = false;
@@ -133,7 +125,7 @@ void control_loop(){
     error = setpoint - process_value;
     
     Pcomponent = error * kp * abs(error/setpoint);
-    Icomponent += error * elapsed_time * ki * ozone_on;
+    Icomponent += error * elapsed_time * ki * ozone_on * door_is_closed;
     if(Icomponent >3.5){Icomponent = 3.5;}
     if(Icomponent < -.5){Icomponent = -0.5;}
     Dcomponent = (error - last_error) / elapsed_time * kd; // is there a way to make this hold the last value if the process value hasn't updated? Maybe averaging the current and last value would be easier. Matching the 4 second cycle of the monitor is probably easiest.
@@ -149,7 +141,7 @@ void control_loop(){
     if(DFRout > 0 & DFRout < 138){DFRout = 138;} // This is the minimum DAC level that will consistently activate the UV bulb. Determined by eye.
     if(DFRout > 10000){DFRout = 10000;} // Prevent sending a value greater than 10000 (the maximum value) to the DFR.
     digitalWrite(BALLAST_POWER_RELAY_PIN, ozone_on);
-    DFRout = DFRout*ozone_on;
+    DFRout = DFRout * ozone_on * door_is_closed;
     dac.setDACOutVoltage(DFRout,0);
     ballast_manual = !digitalRead(BALLAST_MANUAL_ON_SENSE_PIN);
     ballast_auto = !digitalRead(BALLAST_AUTO_SENSE_PIN);
@@ -212,8 +204,8 @@ void control_loop(){
     Serial.print("Process_Value_alternate:");
     Serial.print(process_value_alternate);
     Serial.print(",");
-    Serial.print("Door_Open:");
-    Serial.print(door_sense);
+    Serial.print("Door_is_Closed:");
+    Serial.print(door_is_closed);
     Serial.print(",");
     Serial.print("Ozonator_Temp:");
     Serial.print(ozonator_temp);
